@@ -652,7 +652,7 @@ void Igh_init()
 
         ecrt_slave_config_sdo16(sc, 0x1C32, 1, 2); // set output synchronization triggered by  sync0 event DC mode
         ecrt_slave_config_sdo16(sc, 0x1C33, 1, 2); // set input  synchronization triggered by  sync1 evnent DC mode
-        ecrt_slave_config_sdo8(sc, 0x60c2, 1, TASK_FREQUENCY);
+        ecrt_slave_config_sdo8(sc, 0x60c2, 1, (1000/TASK_FREQUENCY) );
         ecrt_slave_config_sdo8(sc, 0x60c2, 2, -3);
         ecrt_slave_config_sdo8(sc, 0x6060, 0, 8);
         ecrt_slave_config_dc(sc, 0x0300, PERIOD_NS, PERIOD_NS/2, 0, 0);
