@@ -23,7 +23,6 @@
 #include <sys/types.h>
 #include <malloc.h>
 #include <inttypes.h>
-#include <math.h>  // 包含数学库
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,7 +35,6 @@
 #include <unistd.h>
 
 #define THREAD_PRIORITY 60 // Priority for the real-time thread
-#define PI 3.1415926
 
 // 共享内存区域,2M大小
 #define SHM_KEY 12345
@@ -47,7 +45,7 @@ static unsigned int sync_ref_counter = 0;
 static struct timespec apptime;
 
 // 同步周期时钟配置,8毫秒下发周期控制
-#define TASK_FREQUENCY 1000 /* Hz */
+#define TASK_FREQUENCY 500 /* Hz */
 #define CLOCK_TO_USE CLOCK_REALTIME
 #define TIMEOUT_CLEAR_ERROR (1 * TASK_FREQUENCY) /* clearing error timeout */
 // 时间控制相关函数
@@ -100,12 +98,13 @@ static unsigned int touch_probe_pos;
 static unsigned int touch_probe_pos2;
 static unsigned int digital_input;
 
-//default postions
-int defaultPositions[19] = {0, 0, 0, 0, 0,0,0, 0,0,0,0,0,0, 0,0,0,0,0,0};
+// offsets for PDO entries
+static int off_dig_out;
+static int off_counter_in;
+static int off_counter_out;
 
-
-// 判断是否所有电机都到了零位,到了之后会变成 true
-bool isInitedToDefault[19] = {false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false};
+// 判断是否所有电机都到了零位,到了之后会变成1
+bool isInitedToZero[19] = {false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false};
 // 是否电机使能了
 bool isEnabled[19] = {false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false};
 // 记录每个电机的旧状态
@@ -425,7 +424,6 @@ void *rt_thread_function(void *arg)
     int act_torque = 0;
     int act_velocity = 0;
     int target_postion = 0;
-    int target_torque_offset = 0;
     int act_positin_read = 0;
     int dir = 1;
     bool isAllEnabled = true;
@@ -451,15 +449,7 @@ void *rt_thread_function(void *arg)
             uint16_t ss = EC_READ_U16(domain1_pd + offset[i2].status_word);
             if (statusOld[i2] != ss)
             {
-                if ((ss==0x1237&&statusOld[i2]==0x0237)||(ss==0x0237&&statusOld[i2]==0x1237))
-                {
-                    //NO PRINT
-                }
-                else
-                {
-                    printf("status %d : 0x%04x to 0x%04x  \n", i2, statusOld[i2], ss);
-                }
-                
+                printf("status %d : 0x%04x to 0x%04x  \n", i2, statusOld[i2], ss);
                 statusOld[i2] = ss;
                 statusDeCount[i2] = 5;
             }
@@ -512,32 +502,32 @@ void *rt_thread_function(void *arg)
                     act_velocity = EC_READ_S32(domain1_pd + offset[i2].act_velocity);
                     act_torque = EC_READ_S16(domain1_pd + offset[i2].act_torque);
 
-                    if (isInitedToDefault[i2] == false)
+                    if (isInitedToZero[i2] == false)
                     {
-                        if (last_position[i2] > defaultPositions[i2] + 80)
+                        if (last_position[i2] > 80)
                         {
                             target_postion = last_position[i2] - 120;
                             printf("position + %d,  %d to %d  \n", i2, last_position[i2], target_postion);
                             EC_WRITE_S32(domain1_pd + offset[i2].target_position, target_postion);
                             last_position[i2] = target_postion;
                         }
-                        else if (last_position[i2] < defaultPositions[i2] - 80)
+                        else if (last_position[i2] < -80)
                         {
                             target_postion = last_position[i2] + 120;
                             printf("position - %d,  %d to %d  \n", i2, last_position[i2], target_postion);
                             EC_WRITE_S32(domain1_pd + offset[i2].target_position, target_postion);
-                            last_position[i2] = target_postion;                            
+                            last_position[i2] = target_postion;
                         }
                         else
                         {
-                            isInitedToDefault[i2] = true;
+                            isInitedToZero[i2] = true;
                         }
                     }
 
                     // 判断所有电机都零位
                     for (i4 = 4; i4 <= 18; i4++)
                     {
-                        isAllInitedToZero = (isAllInitedToZero && isInitedToDefault[i4]);
+                        isAllInitedToZero = (isAllInitedToZero && isInitedToZero[i4]);
                     }
                     if (isAllInitedToZero)
                     {
@@ -551,27 +541,10 @@ void *rt_thread_function(void *arg)
                         if (data_ok)
                         {
                             target_postion = reference.motor_ref[i2 - 4].target_postion;
-                            // if(i2==7||i2==8||i2==9)
-                            // {
-                            //     target_postion *= -1;
-                            // }
                             EC_WRITE_S32(domain1_pd + offset[i2].target_position, target_postion);
-                            //printf("position %d,  %d to %d  \n", i2, act_position, target_postion);
+                            printf("position %d,  %d to %d  \n", i2, act_position, target_postion);
                             last_position[i2] = target_postion;
-
-                            target_torque_offset = reference.motor_ref[i2 - 4].torque_offset;
-                            // if(target_torque_offset!=0){
-                            //     EC_WRITE_S16(domain1_pd + offset[i2].offset_torque, target_torque_offset);
-                            // }
-
-                            feedback.motor_fdbk[i2].target_position = target_postion;
-                            feedback.motor_fdbk[i2].target_torque_offset = target_torque_offset;
                         }
-                    }
-                    else
-                    {
-                        //有的电机没有初始到零位,就尝试消耗内存队列,防止还有空
-                        edb_pull_ref(&reference);
                     }
 
                     feedback.motor_fdbk[i2].feedbk_postion = act_position;
@@ -694,15 +667,6 @@ void Igh_init()
 
 int main(int argc, char **argv)
 {
-
-    defaultPositions[7] =  (int)((0.468064/PI)*180*16*pow(2,17)/360);
-    defaultPositions[8] =  (int)((-0.0342226/PI)*180*16*pow(2,17)/360);
-    defaultPositions[9] =  (int)((-0.233342/PI)*180*16*pow(2,17)/360);
-
-    // defaultPositions[13] =  (int)((-0.468064/PI)*180*16*pow(2,17)/360);
-    // defaultPositions[14] =  (int)((0.0342226/PI)*180*16*pow(2,17)/360);
-    // defaultPositions[15] =  (int)((0.233342/PI)*180*16*pow(2,17)/360);    
-
     // Get the shared memory segment
     int shmid = shmget(SHM_KEY, SHM_SIZE, 0666);
     if (shmid == -1)

@@ -40,6 +40,7 @@ typedef struct
 	int feedbk_speed;	/*Feed back speed*/
 	int feedbk_torque;	/*Feed back torque*/
 	int target_position;
+	int target_torque_offset;	
 } MOTOR_FEEDBACK;
 
 typedef struct

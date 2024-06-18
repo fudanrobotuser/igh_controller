@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "pthread.h": "c",
+        "cmath": "c",
+        "stdio.h": "c"
+    }
+}
