@@ -69,6 +69,9 @@ int ii = 0;
 bool toZero = true;
 int toZeroOffset = 200;
 
+GROUP_FEEDBACK feedback;
+GROUP_REFERENCE reference;
+
 /****************************************************************************/
 
 // process data
@@ -440,8 +443,7 @@ void *rt_thread_function(void *arg)
         ecrt_master_receive(master);
         ecrt_domain_process(domain1);
 
-        GROUP_FEEDBACK feedback;
-        GROUP_REFERENCE reference;
+
         data_ok = false;
         isAllEnabled = true;
         isAllInitedToZero = true;
@@ -694,14 +696,15 @@ void Igh_init()
 
 int main(int argc, char **argv)
 {
+    //right
+    // defaultPositions[7] =  (int)((-0.468064/PI)*180*16*pow(2,17)/360);
+    // defaultPositions[8] =  (int)((0.0342226/PI)*180*16*pow(2,17)/360);
+    // defaultPositions[9] =  (int)(0.233342/(2*PI)*16*pow(2,17));
 
-    defaultPositions[7] =  (int)((0.468064/PI)*180*16*pow(2,17)/360);
-    defaultPositions[8] =  (int)((-0.0342226/PI)*180*16*pow(2,17)/360);
-    defaultPositions[9] =  (int)((-0.233342/PI)*180*16*pow(2,17)/360);
-
-    // defaultPositions[13] =  (int)((-0.468064/PI)*180*16*pow(2,17)/360);
-    // defaultPositions[14] =  (int)((0.0342226/PI)*180*16*pow(2,17)/360);
-    // defaultPositions[15] =  (int)((0.233342/PI)*180*16*pow(2,17)/360);    
+    //left
+    // defaultPositions[13] =  (int)((0.468064/PI)*180*16*pow(2,17)/360);
+    // defaultPositions[14] =  (int)((-0.0342226/PI)*180*16*pow(2,17)/360);
+    // defaultPositions[15] =  (int)((-0.233342/PI)*180*16*pow(2,17)/360);    
 
     // Get the shared memory segment
     int shmid = shmget(SHM_KEY, SHM_SIZE, 0666);
@@ -720,6 +723,17 @@ int main(int argc, char **argv)
     }
 
     edb_init(appPtr, SHM_SIZE, false);
+
+    //读取初始化位置
+    memset(&feedback, 0, sizeof(feedback));
+    bool dataOk = edb_pull_fdbk(&feedback);
+    if(dataOk)
+    {
+        for(int i=0;i<=18;i++)
+        {
+            defaultPositions[i] = feedback.motor_fdbk[0].default_position;
+        }        
+    }
 
     Igh_init();
     Igh_master_activate();

@@ -41,6 +41,7 @@ typedef struct
 	int feedbk_torque;	/*Feed back torque*/
 	int target_position;
 	int target_torque_offset;	
+	int default_position;
 } MOTOR_FEEDBACK;
 
 typedef struct
