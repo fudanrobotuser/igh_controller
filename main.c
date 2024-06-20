@@ -41,6 +41,7 @@
 // 共享内存区域,2M大小
 #define SHM_KEY 12345
 #define SHM_SIZE (1024 * 1024 * 2)
+bool dataOk = false;
 
 static unsigned int counter = 0;
 static unsigned int sync_ref_counter = 0;
@@ -558,27 +559,22 @@ void *rt_thread_function(void *arg)
                             //     target_postion *= -1;
                             // }
                             EC_WRITE_S32(domain1_pd + offset[i2].target_position, target_postion);
-                            //printf("position %d,  %d to %d  \n", i2, act_position, target_postion);
+                            // printf("position %d,  %d to %d  \n", i2, act_position, target_postion);
                             last_position[i2] = target_postion;
 
-                            target_torque_offset = reference.motor_ref[i2 - 4].torque_offset;
+                            // target_torque_offset = reference.motor_ref[i2 - 4].torque_offset;
                             // if(target_torque_offset!=0){
                             //     EC_WRITE_S16(domain1_pd + offset[i2].offset_torque, target_torque_offset);
                             // }
 
-                            feedback.motor_fdbk[i2].target_position = target_postion;
-                            feedback.motor_fdbk[i2].target_torque_offset = target_torque_offset;
+                            // feedback.motor_fdbk[i2].target_position = target_postion;
+                            // feedback.motor_fdbk[i2].target_torque_offset = target_torque_offset;
                         }
-                    }
-                    else
-                    {
-                        //有的电机没有初始到零位,就尝试消耗内存队列,防止还有空
-                        edb_pull_ref(&reference);
                     }
 
                     feedback.motor_fdbk[i2].feedbk_postion = act_position;
-                    feedback.motor_fdbk[i2].feedbk_speed = act_velocity;
-                    feedback.motor_fdbk[i2].feedbk_torque = act_torque;
+                    feedback.motor_fdbk[i2].feedbk_speed = target_postion;
+                    // feedback.motor_fdbk[i2].feedbk_torque = act_torque;
                     feedback.motor_fdbk[i2].status_word = ss;
                     edb_push_fdbk(&feedback);
                 }
@@ -696,17 +692,9 @@ void Igh_init()
 
 int main(int argc, char **argv)
 {
-    //right
-    // defaultPositions[7] =  (int)((-0.468064/PI)*180*16*pow(2,17)/360);
-    // defaultPositions[8] =  (int)((0.0342226/PI)*180*16*pow(2,17)/360);
-    // defaultPositions[9] =  (int)(0.233342/(2*PI)*16*pow(2,17));
+   
 
-    //left
-    // defaultPositions[13] =  (int)((0.468064/PI)*180*16*pow(2,17)/360);
-    // defaultPositions[14] =  (int)((-0.0342226/PI)*180*16*pow(2,17)/360);
-    // defaultPositions[15] =  (int)((-0.233342/PI)*180*16*pow(2,17)/360);    
-
-    // Get the shared memory segment
+    //初始化共享内存
     int shmid = shmget(SHM_KEY, SHM_SIZE, 0666);
     if (shmid == -1)
     {
@@ -723,9 +711,15 @@ int main(int argc, char **argv)
     }
 
     edb_init(appPtr, SHM_SIZE, false);
+    memset(&reference, 0, sizeof(reference));
+    memset(&feedback, 0, sizeof(feedback));
+    //清空环形列表
+    while(edb_pull_ref(&reference))
+    {
+        printf("clean reference from shm \n ");
+    }  
 
     //读取初始化位置
-    memset(&feedback, 0, sizeof(feedback));
     bool dataOk = edb_pull_fdbk(&feedback);
     if(dataOk)
     {
@@ -734,6 +728,22 @@ int main(int argc, char **argv)
             defaultPositions[i] = feedback.motor_fdbk[0].default_position;
         }        
     }
+
+    //right
+    // defaultPositions[7] =  (int)((0.468064/PI)*180*16*pow(2,17)/360);
+    // defaultPositions[8] =  (int)((-0.0342226/PI)*180*16*pow(2,17)/360);
+    // defaultPositions[9] =  (int)(-0.233342/(2*PI)*16*pow(2,17));
+    // defaultPositions[10] =  (int)((0.841583/PI)*180*16*pow(2,17)/360);
+    // defaultPositions[11] =  (int)(0.57/(2*PI)*16*pow(2,17));
+    // defaultPositions[12] =  (int)((-0.59/PI)*180*16*pow(2,17)/360);
+
+    // //left
+    // defaultPositions[13] =  (int)((-0.468064/PI)*180*16*pow(2,17)/360);
+    // defaultPositions[14] =  (int)((0.0342226/PI)*180*16*pow(2,17)/360);
+    // defaultPositions[15] =  (int)((0.233342/PI)*180*16*pow(2,17)/360);     
+    // defaultPositions[16] =  (int)((-0.841583/PI)*180*16*pow(2,17)/360);    
+    // defaultPositions[17] =  (int)(-0.57/(2*PI)*16*pow(2,17));
+    // defaultPositions[18] =  (int)((0.59/PI)*180*16*pow(2,17)/360);
 
     Igh_init();
     Igh_master_activate();
