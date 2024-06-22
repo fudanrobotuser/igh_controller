@@ -48,7 +48,7 @@ static unsigned int sync_ref_counter = 0;
 static struct timespec apptime;
 
 // 同步周期时钟配置,8毫秒下发周期控制
-#define TASK_FREQUENCY 1000 /* Hz */
+#define TASK_FREQUENCY 500 /* Hz */
 #define CLOCK_TO_USE CLOCK_REALTIME
 #define TIMEOUT_CLEAR_ERROR (1 * TASK_FREQUENCY) /* clearing error timeout */
 // 时间控制相关函数
@@ -81,6 +81,8 @@ static uint8_t *domain1_pd = NULL;
 // elmo 伺服对接
 #define ElmoVidPid 0x0000009a, 0x00030924
 
+#define KaiXuanVidPid 0x00010203, 0x00000402
+
 // offsets for PDO entries
 static unsigned int ctrl_word;
 static unsigned int mode;
@@ -105,19 +107,19 @@ static unsigned int touch_probe_pos2;
 static unsigned int digital_input;
 
 //default postions
-int defaultPositions[19] = {0, 0, 0, 0, 0,0,0, 0,0,0,0,0,0, 0,0,0,0,0,0};
+int defaultPositions[33] = {0, 0, 0, 0, 0, 0,0, 0,0,0,0,0,0, 0,0,0,0,0,0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0,  0, 0, 0, 0};
 
 
 // 判断是否所有电机都到了零位,到了之后会变成 true
-bool isInitedToDefault[19] = {false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false};
+bool isInitedToDefault[33] = {false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false,  false, false, false, false, false,  false, false, false, false};
 // 是否电机使能了
-bool isEnabled[19] = {false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false};
+bool isEnabled[33] = {false, false, false, false, false,  false, false, false, false, false,  false, false, false, false, false, false, false, false, false, false, false, false, false, false,  false, false, false, false, false,  false, false, false, false};
 // 记录每个电机的旧状态
-uint16_t statusOld[19] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+uint16_t statusOld[33] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0,  0, 0, 0, 0};
 // 状态机切换的等待次数
-int statusDeCount[19] = {5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5};
+int statusDeCount[33] = {5, 5, 5, 5, 5,  5, 5, 5, 5, 5,  5, 5, 5, 5, 5,  5, 5, 5, 5, 5, 5, 5, 5, 5,  5, 5, 5, 5, 5,  5, 5, 5, 5};
 // 记录当前的位置
-int last_position[19] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+int last_position[33] = {0, 0, 0, 0, 0,  0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0,  0, 0, 0, 0};
 
 // 伺服电机所有属性结构体,用于读取值的位置指针
 static struct
@@ -149,7 +151,7 @@ static struct
     unsigned int act_velocity;
     unsigned int mode_Of_Operation;
     unsigned int mode_Of_Operation_dsiplay;
-} offset[19];
+} offset[33];
 
 // IGH主栈的主映射表,总计15个电机. 因为 0-3 口给扩展板用了,实际电机的总线分配序号为 4-18
 const static ec_pdo_entry_reg_t domain1_regs[] = {
@@ -336,6 +338,7 @@ const static ec_pdo_entry_reg_t domain1_regs[] = {
     {0, 17, ElmoVidPid, 0x606c, 0, &offset[17].act_velocity},
     {0, 17, ElmoVidPid, 0x6077, 0, &offset[17].act_torque},
     {0, 17, ElmoVidPid, 0x6061, 0, &offset[17].mode_Of_Operation_dsiplay},
+
     ////
     {0, 18, ElmoVidPid, 0x6040, 0, &offset[18].ctrl_word},
     {0, 18, ElmoVidPid, 0x6071, 0, &offset[18].target_torque},
@@ -349,6 +352,191 @@ const static ec_pdo_entry_reg_t domain1_regs[] = {
     {0, 18, ElmoVidPid, 0x606c, 0, &offset[18].act_velocity},
     {0, 18, ElmoVidPid, 0x6077, 0, &offset[18].act_torque},
     {0, 18, ElmoVidPid, 0x6061, 0, &offset[18].mode_Of_Operation_dsiplay},
+
+
+        ////
+    {0, 19, KaiXuanVidPid, 0x6040, 0, &offset[19].ctrl_word},
+    {0, 19, KaiXuanVidPid, 0x6071, 0, &offset[19].target_torque},
+    {0, 19, KaiXuanVidPid, 0x607a, 0, &offset[19].target_position},
+    {0, 19, KaiXuanVidPid, 0x60b1, 0, &offset[19].offset_velocity},
+    {0, 19, KaiXuanVidPid, 0x60b2, 0, &offset[19].offset_torque},
+    {0, 19, KaiXuanVidPid, 0x60ff, 0, &offset[19].target_velocity},
+
+    {0, 19, KaiXuanVidPid, 0x6041, 0, &offset[19].status_word},
+    {0, 19, KaiXuanVidPid, 0x6064, 0, &offset[19].act_position},
+    {0, 19, KaiXuanVidPid, 0x606c, 0, &offset[19].act_velocity},
+    {0, 19, KaiXuanVidPid, 0x6077, 0, &offset[19].act_torque},
+    {0, 19, KaiXuanVidPid, 0x6061, 0, &offset[19].mode_Of_Operation_dsiplay},
+
+{0, 20, KaiXuanVidPid, 0x6040, 0, &offset[20].ctrl_word},
+{0, 20, KaiXuanVidPid, 0x6071, 0, &offset[20].target_torque},
+{0, 20, KaiXuanVidPid, 0x607a, 0, &offset[20].target_position},
+{0, 20, KaiXuanVidPid, 0x60b1, 0, &offset[20].offset_velocity},
+{0, 20, KaiXuanVidPid, 0x60b2, 0, &offset[20].offset_torque},
+{0, 20, KaiXuanVidPid, 0x60ff, 0, &offset[20].target_velocity},
+
+{0, 20, KaiXuanVidPid, 0x6041, 0, &offset[20].status_word},
+{0, 20, KaiXuanVidPid, 0x6064, 0, &offset[20].act_position},
+{0, 20, KaiXuanVidPid, 0x606c, 0, &offset[20].act_velocity},
+{0, 20, KaiXuanVidPid, 0x6077, 0, &offset[20].act_torque},
+{0, 20, KaiXuanVidPid, 0x6061, 0, &offset[20].mode_Of_Operation_dsiplay},
+
+{0, 21, KaiXuanVidPid, 0x6040, 0, &offset[21].ctrl_word},
+{0, 21, KaiXuanVidPid, 0x6071, 0, &offset[21].target_torque},
+{0, 21, KaiXuanVidPid, 0x607a, 0, &offset[21].target_position},
+{0, 21, KaiXuanVidPid, 0x60b1, 0, &offset[21].offset_velocity},
+{0, 21, KaiXuanVidPid, 0x60b2, 0, &offset[21].offset_torque},
+{0, 21, KaiXuanVidPid, 0x60ff, 0, &offset[21].target_velocity},
+
+{0, 21, KaiXuanVidPid, 0x6041, 0, &offset[21].status_word},
+{0, 21, KaiXuanVidPid, 0x6064, 0, &offset[21].act_position},
+{0, 21, KaiXuanVidPid, 0x606c, 0, &offset[21].act_velocity},
+{0, 21, KaiXuanVidPid, 0x6077, 0, &offset[21].act_torque},
+{0, 21, KaiXuanVidPid, 0x6061, 0, &offset[21].mode_Of_Operation_dsiplay},
+
+{0, 22, KaiXuanVidPid, 0x6040, 0, &offset[22].ctrl_word},
+{0, 22, KaiXuanVidPid, 0x6071, 0, &offset[22].target_torque},
+{0, 22, KaiXuanVidPid, 0x607a, 0, &offset[22].target_position},
+{0, 22, KaiXuanVidPid, 0x60b1, 0, &offset[22].offset_velocity},
+{0, 22, KaiXuanVidPid, 0x60b2, 0, &offset[22].offset_torque},
+{0, 22, KaiXuanVidPid, 0x60ff, 0, &offset[22].target_velocity},
+
+{0, 22, KaiXuanVidPid, 0x6041, 0, &offset[22].status_word},
+{0, 22, KaiXuanVidPid, 0x6064, 0, &offset[22].act_position},
+{0, 22, KaiXuanVidPid, 0x606c, 0, &offset[22].act_velocity},
+{0, 22, KaiXuanVidPid, 0x6077, 0, &offset[22].act_torque},
+{0, 22, KaiXuanVidPid, 0x6061, 0, &offset[22].mode_Of_Operation_dsiplay},
+
+{0, 23, KaiXuanVidPid, 0x6040, 0, &offset[23].ctrl_word},
+{0, 23, KaiXuanVidPid, 0x6071, 0, &offset[23].target_torque},
+{0, 23, KaiXuanVidPid, 0x607a, 0, &offset[23].target_position},
+{0, 23, KaiXuanVidPid, 0x60b1, 0, &offset[23].offset_velocity},
+{0, 23, KaiXuanVidPid, 0x60b2, 0, &offset[23].offset_torque},
+{0, 23, KaiXuanVidPid, 0x60ff, 0, &offset[23].target_velocity},
+
+{0, 23, KaiXuanVidPid, 0x6041, 0, &offset[23].status_word},
+{0, 23, KaiXuanVidPid, 0x6064, 0, &offset[23].act_position},
+{0, 23, KaiXuanVidPid, 0x606c, 0, &offset[23].act_velocity},
+{0, 23, KaiXuanVidPid, 0x6077, 0, &offset[23].act_torque},
+{0, 23, KaiXuanVidPid, 0x6061, 0, &offset[23].mode_Of_Operation_dsiplay},
+
+{0, 24, KaiXuanVidPid, 0x6040, 0, &offset[24].ctrl_word},
+{0, 24, KaiXuanVidPid, 0x6071, 0, &offset[24].target_torque},
+{0, 24, KaiXuanVidPid, 0x607a, 0, &offset[24].target_position},
+{0, 24, KaiXuanVidPid, 0x60b1, 0, &offset[24].offset_velocity},
+{0, 24, KaiXuanVidPid, 0x60b2, 0, &offset[24].offset_torque},
+{0, 24, KaiXuanVidPid, 0x60ff, 0, &offset[24].target_velocity},
+
+{0, 24, KaiXuanVidPid, 0x6041, 0, &offset[24].status_word},
+{0, 24, KaiXuanVidPid, 0x6064, 0, &offset[24].act_position},
+{0, 24, KaiXuanVidPid, 0x606c, 0, &offset[24].act_velocity},
+{0, 24, KaiXuanVidPid, 0x6077, 0, &offset[24].act_torque},
+{0, 24, KaiXuanVidPid, 0x6061, 0, &offset[24].mode_Of_Operation_dsiplay},
+
+{0, 25, KaiXuanVidPid, 0x6040, 0, &offset[25].ctrl_word},
+{0, 25, KaiXuanVidPid, 0x6071, 0, &offset[25].target_torque},
+{0, 25, KaiXuanVidPid, 0x607a, 0, &offset[25].target_position},
+{0, 25, KaiXuanVidPid, 0x60b1, 0, &offset[25].offset_velocity},
+{0, 25, KaiXuanVidPid, 0x60b2, 0, &offset[25].offset_torque},
+{0, 25, KaiXuanVidPid, 0x60ff, 0, &offset[25].target_velocity},
+
+{0, 25, KaiXuanVidPid, 0x6041, 0, &offset[25].status_word},
+{0, 25, KaiXuanVidPid, 0x6064, 0, &offset[25].act_position},
+{0, 25, KaiXuanVidPid, 0x606c, 0, &offset[25].act_velocity},
+{0, 25, KaiXuanVidPid, 0x6077, 0, &offset[25].act_torque},
+{0, 25, KaiXuanVidPid, 0x6061, 0, &offset[25].mode_Of_Operation_dsiplay},
+
+{0, 26, KaiXuanVidPid, 0x6040, 0, &offset[26].ctrl_word},
+{0, 26, KaiXuanVidPid, 0x6071, 0, &offset[26].target_torque},
+{0, 26, KaiXuanVidPid, 0x607a, 0, &offset[26].target_position},
+{0, 26, KaiXuanVidPid, 0x60b1, 0, &offset[26].offset_velocity},
+{0, 26, KaiXuanVidPid, 0x60b2, 0, &offset[26].offset_torque},
+{0, 26, KaiXuanVidPid, 0x60ff, 0, &offset[26].target_velocity},
+
+{0, 26, KaiXuanVidPid, 0x6041, 0, &offset[26].status_word},
+{0, 26, KaiXuanVidPid, 0x6064, 0, &offset[26].act_position},
+{0, 26, KaiXuanVidPid, 0x606c, 0, &offset[26].act_velocity},
+{0, 26, KaiXuanVidPid, 0x6077, 0, &offset[26].act_torque},
+{0, 26, KaiXuanVidPid, 0x6061, 0, &offset[26].mode_Of_Operation_dsiplay},
+
+{0, 27, KaiXuanVidPid, 0x6040, 0, &offset[27].ctrl_word},
+{0, 27, KaiXuanVidPid, 0x6071, 0, &offset[27].target_torque},
+{0, 27, KaiXuanVidPid, 0x607a, 0, &offset[27].target_position},
+{0, 27, KaiXuanVidPid, 0x60b1, 0, &offset[27].offset_velocity},
+{0, 27, KaiXuanVidPid, 0x60b2, 0, &offset[27].offset_torque},
+{0, 27, KaiXuanVidPid, 0x60ff, 0, &offset[27].target_velocity},
+
+{0, 27, KaiXuanVidPid, 0x6041, 0, &offset[27].status_word},
+{0, 27, KaiXuanVidPid, 0x6064, 0, &offset[27].act_position},
+{0, 27, KaiXuanVidPid, 0x606c, 0, &offset[27].act_velocity},
+{0, 27, KaiXuanVidPid, 0x6077, 0, &offset[27].act_torque},
+{0, 27, KaiXuanVidPid, 0x6061, 0, &offset[27].mode_Of_Operation_dsiplay},
+
+{0, 28, KaiXuanVidPid, 0x6040, 0, &offset[28].ctrl_word},
+{0, 28, KaiXuanVidPid, 0x6071, 0, &offset[28].target_torque},
+{0, 28, KaiXuanVidPid, 0x607a, 0, &offset[28].target_position},
+{0, 28, KaiXuanVidPid, 0x60b1, 0, &offset[28].offset_velocity},
+{0, 28, KaiXuanVidPid, 0x60b2, 0, &offset[28].offset_torque},
+{0, 28, KaiXuanVidPid, 0x60ff, 0, &offset[28].target_velocity},
+
+{0, 28, KaiXuanVidPid, 0x6041, 0, &offset[28].status_word},
+{0, 28, KaiXuanVidPid, 0x6064, 0, &offset[28].act_position},
+{0, 28, KaiXuanVidPid, 0x606c, 0, &offset[28].act_velocity},
+{0, 28, KaiXuanVidPid, 0x6077, 0, &offset[28].act_torque},
+{0, 28, KaiXuanVidPid, 0x6061, 0, &offset[28].mode_Of_Operation_dsiplay},
+
+{0, 29, KaiXuanVidPid, 0x6040, 0, &offset[29].ctrl_word},
+{0, 29, KaiXuanVidPid, 0x6071, 0, &offset[29].target_torque},
+{0, 29, KaiXuanVidPid, 0x607a, 0, &offset[29].target_position},
+{0, 29, KaiXuanVidPid, 0x60b1, 0, &offset[29].offset_velocity},
+{0, 29, KaiXuanVidPid, 0x60b2, 0, &offset[29].offset_torque},
+{0, 29, KaiXuanVidPid, 0x60ff, 0, &offset[29].target_velocity},
+
+{0, 29, KaiXuanVidPid, 0x6041, 0, &offset[29].status_word},
+{0, 29, KaiXuanVidPid, 0x6064, 0, &offset[29].act_position},
+{0, 29, KaiXuanVidPid, 0x606c, 0, &offset[29].act_velocity},
+{0, 29, KaiXuanVidPid, 0x6077, 0, &offset[29].act_torque},
+{0, 29, KaiXuanVidPid, 0x6061, 0, &offset[29].mode_Of_Operation_dsiplay},
+
+{0, 30, KaiXuanVidPid, 0x6040, 0, &offset[30].ctrl_word},
+{0, 30, KaiXuanVidPid, 0x6071, 0, &offset[30].target_torque},
+{0, 30, KaiXuanVidPid, 0x607a, 0, &offset[30].target_position},
+{0, 30, KaiXuanVidPid, 0x60b1, 0, &offset[30].offset_velocity},
+{0, 30, KaiXuanVidPid, 0x60b2, 0, &offset[30].offset_torque},
+{0, 30, KaiXuanVidPid, 0x60ff, 0, &offset[30].target_velocity},
+
+{0, 30, KaiXuanVidPid, 0x6041, 0, &offset[30].status_word},
+{0, 30, KaiXuanVidPid, 0x6064, 0, &offset[30].act_position},
+{0, 30, KaiXuanVidPid, 0x606c, 0, &offset[30].act_velocity},
+{0, 30, KaiXuanVidPid, 0x6077, 0, &offset[30].act_torque},
+{0, 30, KaiXuanVidPid, 0x6061, 0, &offset[30].mode_Of_Operation_dsiplay},
+
+{0, 31, KaiXuanVidPid, 0x6040, 0, &offset[31].ctrl_word},
+{0, 31, KaiXuanVidPid, 0x6071, 0, &offset[31].target_torque},
+{0, 31, KaiXuanVidPid, 0x607a, 0, &offset[31].target_position},
+{0, 31, KaiXuanVidPid, 0x60b1, 0, &offset[31].offset_velocity},
+{0, 31, KaiXuanVidPid, 0x60b2, 0, &offset[31].offset_torque},
+{0, 31, KaiXuanVidPid, 0x60ff, 0, &offset[31].target_velocity},
+
+{0, 31, KaiXuanVidPid, 0x6041, 0, &offset[31].status_word},
+{0, 31, KaiXuanVidPid, 0x6064, 0, &offset[31].act_position},
+{0, 31, KaiXuanVidPid, 0x606c, 0, &offset[31].act_velocity},
+{0, 31, KaiXuanVidPid, 0x6077, 0, &offset[31].act_torque},
+{0, 31, KaiXuanVidPid, 0x6061, 0, &offset[31].mode_Of_Operation_dsiplay},
+
+{0, 32, KaiXuanVidPid, 0x6040, 0, &offset[32].ctrl_word},
+{0, 32, KaiXuanVidPid, 0x6071, 0, &offset[32].target_torque},
+{0, 32, KaiXuanVidPid, 0x607a, 0, &offset[32].target_position},
+{0, 32, KaiXuanVidPid, 0x60b1, 0, &offset[32].offset_velocity},
+{0, 32, KaiXuanVidPid, 0x60b2, 0, &offset[32].offset_torque},
+{0, 32, KaiXuanVidPid, 0x60ff, 0, &offset[32].target_velocity},
+
+{0, 32, KaiXuanVidPid, 0x6041, 0, &offset[32].status_word},
+{0, 32, KaiXuanVidPid, 0x6064, 0, &offset[32].act_position},
+{0, 32, KaiXuanVidPid, 0x606c, 0, &offset[32].act_velocity},
+{0, 32, KaiXuanVidPid, 0x6077, 0, &offset[32].act_torque},
+{0, 32, KaiXuanVidPid, 0x6061, 0, &offset[32].mode_Of_Operation_dsiplay},
+
     ////
     {}};
 
@@ -380,6 +568,18 @@ ec_sync_info_t Igh_syncs[] = {
     {2, EC_DIR_OUTPUT, 1, Igh_pdos + 0, EC_WD_ENABLE},
     {3, EC_DIR_INPUT, 1, Igh_pdos + 1, EC_WD_DISABLE},
     {0xFF}};
+
+ec_pdo_info_t Igh_pdos_kaixuan[] = {
+    {0x1601, 6, Igh_pdo_entries + 0},
+    {0x1a01, 5, Igh_pdo_entries + 6},
+};
+
+ec_sync_info_t Igh_syncs_kaixuan[] = {
+    {0, EC_DIR_OUTPUT, 0, NULL, EC_WD_DISABLE},
+    {1, EC_DIR_INPUT, 0, NULL, EC_WD_DISABLE},
+    {2, EC_DIR_OUTPUT, 1, Igh_pdos_kaixuan + 0, EC_WD_ENABLE},
+    {3, EC_DIR_INPUT, 1, Igh_pdos_kaixuan + 1, EC_WD_DISABLE},
+    {0xFF}};    
 
 /*****************************************************************************/
 
@@ -450,7 +650,7 @@ void *rt_thread_function(void *arg)
         isAllEnabled = true;
         isAllInitedToZero = true;
 
-        for (i2 = 4; i2 <= 18; i2++)
+        for (i2 = 4; i2 <= 32; i2++)
         {
             uint16_t ss = EC_READ_U16(domain1_pd + offset[i2].status_word);
             if (statusOld[i2] != ss)
@@ -505,11 +705,10 @@ void *rt_thread_function(void *arg)
                 isEnabled[i2] = true;
 
                 // 判断所有电机都使能
-                for (i3 = 4; i3 <= 18; i3++)
+                for (i3 = 4; i3 <= 32; i3++)
                 {
                     isAllEnabled = (isAllEnabled && isEnabled[i3]);
                 }
-                // 所有电机都使能后,从共享内存读取位置
                 if (isAllEnabled)
                 {
                     act_position = EC_READ_S32(domain1_pd + offset[i2].act_position);
@@ -535,53 +734,12 @@ void *rt_thread_function(void *arg)
                         else
                         {
                             isInitedToDefault[i2] = true;
+                            //EC_WRITE_S16(domain1_pd + offset[i2].offset_torque, 100);
+                            //printf("offset_torque 10 \n");
                         }
                     }
 
-                    // 判断所有电机都零位
-                    for (i4 = 4; i4 <= 18; i4++)
-                    {
-                        isAllInitedToZero = (isAllInitedToZero && isInitedToDefault[i4]);
-                    }
-                    if (isAllInitedToZero)
-                    {
-                        // printf("isAllInitedToZero  \n");
-                        if (i2 == 4)
-                        {
-                            memset(&reference, 0, sizeof(reference));
-                            memset(&feedback, 0, sizeof(feedback));
-                            pullDataOK = edb_pull_ref(&reference);
-                        }
-                        if (pullDataOK)
-                        {
-                            target_postion = reference.motor_ref[i2 - 4].target_postion;
-                            // if(i2==7||i2==8||i2==9)
-                            // {
-                            //     target_postion *= -1;
-                            // }
-                            EC_WRITE_S32(domain1_pd + offset[i2].target_position, target_postion);
-                            // printf("position %d,  %d to %d  \n", i2, act_position, target_postion);
-                            last_position[i2] = target_postion;
-
-                            target_torque_offset = reference.motor_ref[i2 - 4].torque_offset;
-                            if(i2==18){
-                                // EC_WRITE_S16(domain1_pd + offset[i2].offset_torque, target_torque_offset);
-                            }
-
-                        }
-                    }
-
-                    feedback.motor_fdbk[i2-4].feedbk_postion = act_position;
-                    // printf("act_position %d,%d  \n", i2, act_position);
-                    feedback.motor_fdbk[i2-4].feedbk_speed = act_velocity;
-                    feedback.motor_fdbk[i2-4].feedbk_torque = act_torque;
-                    feedback.motor_fdbk[i2-4].status_word = ss;
-                    feedback.motor_fdbk[i2-4].target_position = target_postion;
-                    pushDataOK = edb_push_fdbk(&feedback);
-                    if(!pushDataOK)
-                    {
-                        printf("pushData not OK  \n");
-                    }
+                   
                 }
             }
         }
@@ -635,7 +793,6 @@ void Igh_init()
     ec_slave_info_t slave_info;
     int ret;
     int slavecnt;
-    ec_slave_config_t *sc;
 
     // uint32_t  abort_code;
     // size_t rb;
@@ -688,6 +845,29 @@ void Igh_init()
         ecrt_slave_config_dc(sc, 0x0300, PERIOD_NS, PERIOD_NS/2, 0, 0);
     }
 
+    for (ii = 19; ii <= 32; ii++)
+    {
+
+        ec_slave_config_t *sc;
+        if (!(sc = ecrt_master_slave_config(master, 0, ii, KaiXuanVidPid)))
+        {
+            fprintf(stderr, "Failed to get slave configuration for Igh.\n");
+            exit(EXIT_FAILURE);
+        }
+
+        printf("Configuring PDOs... %d \n", ii);
+        if (ecrt_slave_config_pdos(sc, EC_END, Igh_syncs_kaixuan))
+        {
+            fprintf(stderr, "Failed to configure Igh PDOs.\n");
+            exit(EXIT_FAILURE);
+        }
+
+        ecrt_slave_config_sdo16(sc, 0x1C32, 1, 2); // set output synchronization triggered by  sync0 event DC mode
+        ecrt_slave_config_sdo16(sc, 0x1C33, 1, 2); // set input  synchronization triggered by  sync1 evnent DC mode
+        ecrt_slave_config_sdo8(sc, 0x6060, 0, 8);
+        ecrt_slave_config_dc(sc, 0x0300, PERIOD_NS, PERIOD_NS/2, 0, 0);
+    }    
+
     if (ecrt_domain_reg_pdo_entry_list(domain1, domain1_regs))
     {
         fprintf(stderr, "PDO entry registration failed!\n");
@@ -699,56 +879,7 @@ int main(int argc, char **argv)
 {
    
 
-    //初始化共享内存
-    int shmid = shmget(SHM_KEY, SHM_SIZE, 0666);
-    if (shmid == -1)
-    {
-        perror("shmget");
-        return EXIT_FAILURE;
-    }
-
-    void *appPtr;
-
-    appPtr = shmat(shmid, 0, 0);
-    if (appPtr == (void *)-1)
-    {
-        return -1;
-    }
-
-    edb_init(appPtr, SHM_SIZE, false);
-    memset(&reference, 0, sizeof(reference));
-    memset(&feedback, 0, sizeof(feedback));
-    //清空环形列表
-    while(edb_pull_ref(&reference))
-    {
-        printf("clean reference from shm \n ");
-    }  
-
-    //读取初始化位置
-    bool dataOk = edb_pull_fdbk(&feedback);
-    if(dataOk)
-    {
-        for(int i=0;i<=18;i++)
-        {
-            // defaultPositions[i] = feedback.motor_fdbk[0].default_position;
-        }        
-    }
-
-    //right
-    defaultPositions[7] =  (int)((0.468064/PI)*180*16*pow(2,17)/360);
-    defaultPositions[8] =  (int)((-0.0342226/PI)*180*16*pow(2,17)/360);
-    defaultPositions[9] =  (int)(-0.233342/(2*PI)*16*pow(2,17));
-    defaultPositions[10] =  (int)((0.841583/PI)*180*16*pow(2,17)/360);
-    defaultPositions[11] =  (int)(0.57/(2*PI)*16*pow(2,17));
-    defaultPositions[12] =  (int)((-0.59/PI)*180*16*pow(2,17)/360);
-
-    //left
-    defaultPositions[13] =  (int)((-0.468064/PI)*180*16*pow(2,17)/360);
-    defaultPositions[14] =  (int)((0.0342226/PI)*180*16*pow(2,17)/360);
-    defaultPositions[15] =  (int)((0.233342/PI)*180*16*pow(2,17)/360);     
-    defaultPositions[16] =  (int)((-0.841583/PI)*180*16*pow(2,17)/360);    
-    defaultPositions[17] =  (int)(-0.57/(2*PI)*16*pow(2,17));
-    defaultPositions[18] =  (int)((0.59/PI)*180*16*pow(2,17)/360);
+   
 
     Igh_init();
     Igh_master_activate();

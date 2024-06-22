@@ -154,188 +154,7 @@ static struct
 // IGH主栈的主映射表,总计15个电机. 因为 0-3 口给扩展板用了,实际电机的总线分配序号为 4-18
 const static ec_pdo_entry_reg_t domain1_regs[] = {
 
-    {0, 4, ElmoVidPid, 0x6040, 0, &offset[4].ctrl_word},
-    {0, 4, ElmoVidPid, 0x6071, 0, &offset[4].target_torque},
-    {0, 4, ElmoVidPid, 0x607a, 0, &offset[4].target_position},
-    {0, 4, ElmoVidPid, 0x60b1, 0, &offset[4].offset_velocity},
-    {0, 4, ElmoVidPid, 0x60b2, 0, &offset[4].offset_torque},
-    {0, 4, ElmoVidPid, 0x60ff, 0, &offset[4].target_velocity},
 
-    {0, 4, ElmoVidPid, 0x6041, 0, &offset[4].status_word},
-    {0, 4, ElmoVidPid, 0x6064, 0, &offset[4].act_position},
-    {0, 4, ElmoVidPid, 0x606c, 0, &offset[4].act_velocity},
-    {0, 4, ElmoVidPid, 0x6077, 0, &offset[4].act_torque},
-    {0, 4, ElmoVidPid, 0x6061, 0, &offset[4].mode_Of_Operation_dsiplay},
-    ////
-    {0, 5, ElmoVidPid, 0x6040, 0, &offset[5].ctrl_word},
-    {0, 5, ElmoVidPid, 0x6071, 0, &offset[5].target_torque},
-    {0, 5, ElmoVidPid, 0x607a, 0, &offset[5].target_position},
-    {0, 5, ElmoVidPid, 0x60b1, 0, &offset[5].offset_velocity},
-    {0, 5, ElmoVidPid, 0x60b2, 0, &offset[5].offset_torque},
-    {0, 5, ElmoVidPid, 0x60ff, 0, &offset[5].target_velocity},
-
-    {0, 5, ElmoVidPid, 0x6041, 0, &offset[5].status_word},
-    {0, 5, ElmoVidPid, 0x6064, 0, &offset[5].act_position},
-    {0, 5, ElmoVidPid, 0x606c, 0, &offset[5].act_velocity},
-    {0, 5, ElmoVidPid, 0x6077, 0, &offset[5].act_torque},
-    {0, 5, ElmoVidPid, 0x6061, 0, &offset[5].mode_Of_Operation_dsiplay},
-    ////
-
-    {0, 6, ElmoVidPid, 0x6040, 0, &offset[6].ctrl_word},
-    {0, 6, ElmoVidPid, 0x6071, 0, &offset[6].target_torque},
-    {0, 6, ElmoVidPid, 0x607a, 0, &offset[6].target_position},
-    {0, 6, ElmoVidPid, 0x60b1, 0, &offset[6].offset_velocity},
-    {0, 6, ElmoVidPid, 0x60b2, 0, &offset[6].offset_torque},
-    {0, 6, ElmoVidPid, 0x60ff, 0, &offset[6].target_velocity},
-
-    {0, 6, ElmoVidPid, 0x6041, 0, &offset[6].status_word},
-    {0, 6, ElmoVidPid, 0x6064, 0, &offset[6].act_position},
-    {0, 6, ElmoVidPid, 0x606c, 0, &offset[6].act_velocity},
-    {0, 6, ElmoVidPid, 0x6077, 0, &offset[6].act_torque},
-    {0, 6, ElmoVidPid, 0x6061, 0, &offset[6].mode_Of_Operation_dsiplay},
-    ////
-    {0, 7, ElmoVidPid, 0x6040, 0, &offset[7].ctrl_word},
-    {0, 7, ElmoVidPid, 0x6071, 0, &offset[7].target_torque},
-    {0, 7, ElmoVidPid, 0x607a, 0, &offset[7].target_position},
-    {0, 7, ElmoVidPid, 0x60b1, 0, &offset[7].offset_velocity},
-    {0, 7, ElmoVidPid, 0x60b2, 0, &offset[7].offset_torque},
-    {0, 7, ElmoVidPid, 0x60ff, 0, &offset[7].target_velocity},
-
-    {0, 7, ElmoVidPid, 0x6041, 0, &offset[7].status_word},
-    {0, 7, ElmoVidPid, 0x6064, 0, &offset[7].act_position},
-    {0, 7, ElmoVidPid, 0x606c, 0, &offset[7].act_velocity},
-    {0, 7, ElmoVidPid, 0x6077, 0, &offset[7].act_torque},
-    {0, 7, ElmoVidPid, 0x6061, 0, &offset[7].mode_Of_Operation_dsiplay},
-    ////
-    {0, 8, ElmoVidPid, 0x6040, 0, &offset[8].ctrl_word},
-    {0, 8, ElmoVidPid, 0x6071, 0, &offset[8].target_torque},
-    {0, 8, ElmoVidPid, 0x607a, 0, &offset[8].target_position},
-    {0, 8, ElmoVidPid, 0x60b1, 0, &offset[8].offset_velocity},
-    {0, 8, ElmoVidPid, 0x60b2, 0, &offset[8].offset_torque},
-    {0, 8, ElmoVidPid, 0x60ff, 0, &offset[8].target_velocity},
-
-    {0, 8, ElmoVidPid, 0x6041, 0, &offset[8].status_word},
-    {0, 8, ElmoVidPid, 0x6064, 0, &offset[8].act_position},
-    {0, 8, ElmoVidPid, 0x606c, 0, &offset[8].act_velocity},
-    {0, 8, ElmoVidPid, 0x6077, 0, &offset[8].act_torque},
-    {0, 8, ElmoVidPid, 0x6061, 0, &offset[8].mode_Of_Operation_dsiplay},
-    ////
-    {0, 9, ElmoVidPid, 0x6040, 0, &offset[9].ctrl_word},
-    {0, 9, ElmoVidPid, 0x6071, 0, &offset[9].target_torque},
-    {0, 9, ElmoVidPid, 0x607a, 0, &offset[9].target_position},
-    {0, 9, ElmoVidPid, 0x60b1, 0, &offset[9].offset_velocity},
-    {0, 9, ElmoVidPid, 0x60b2, 0, &offset[9].offset_torque},
-    {0, 9, ElmoVidPid, 0x60ff, 0, &offset[9].target_velocity},
-
-    {0, 9, ElmoVidPid, 0x6041, 0, &offset[9].status_word},
-    {0, 9, ElmoVidPid, 0x6064, 0, &offset[9].act_position},
-    {0, 9, ElmoVidPid, 0x606c, 0, &offset[9].act_velocity},
-    {0, 9, ElmoVidPid, 0x6077, 0, &offset[9].act_torque},
-    {0, 9, ElmoVidPid, 0x6061, 0, &offset[9].mode_Of_Operation_dsiplay},
-    ////
-    {0, 10, ElmoVidPid, 0x6040, 0, &offset[10].ctrl_word},
-    {0, 10, ElmoVidPid, 0x6071, 0, &offset[10].target_torque},
-    {0, 10, ElmoVidPid, 0x607a, 0, &offset[10].target_position},
-    {0, 10, ElmoVidPid, 0x60b1, 0, &offset[10].offset_velocity},
-    {0, 10, ElmoVidPid, 0x60b2, 0, &offset[10].offset_torque},
-    {0, 10, ElmoVidPid, 0x60ff, 0, &offset[10].target_velocity},
-
-    {0, 10, ElmoVidPid, 0x6041, 0, &offset[10].status_word},
-    {0, 10, ElmoVidPid, 0x6064, 0, &offset[10].act_position},
-    {0, 10, ElmoVidPid, 0x606c, 0, &offset[10].act_velocity},
-    {0, 10, ElmoVidPid, 0x6077, 0, &offset[10].act_torque},
-    {0, 10, ElmoVidPid, 0x6061, 0, &offset[10].mode_Of_Operation_dsiplay},
-    ////
-    {0, 11, ElmoVidPid, 0x6040, 0, &offset[11].ctrl_word},
-    {0, 11, ElmoVidPid, 0x6071, 0, &offset[11].target_torque},
-    {0, 11, ElmoVidPid, 0x607a, 0, &offset[11].target_position},
-    {0, 11, ElmoVidPid, 0x60b1, 0, &offset[11].offset_velocity},
-    {0, 11, ElmoVidPid, 0x60b2, 0, &offset[11].offset_torque},
-    {0, 11, ElmoVidPid, 0x60ff, 0, &offset[11].target_velocity},
-
-    {0, 11, ElmoVidPid, 0x6041, 0, &offset[11].status_word},
-    {0, 11, ElmoVidPid, 0x6064, 0, &offset[11].act_position},
-    {0, 11, ElmoVidPid, 0x606c, 0, &offset[11].act_velocity},
-    {0, 11, ElmoVidPid, 0x6077, 0, &offset[11].act_torque},
-    {0, 11, ElmoVidPid, 0x6061, 0, &offset[11].mode_Of_Operation_dsiplay},
-    ////
-    {0, 12, ElmoVidPid, 0x6040, 0, &offset[12].ctrl_word},
-    {0, 12, ElmoVidPid, 0x6071, 0, &offset[12].target_torque},
-    {0, 12, ElmoVidPid, 0x607a, 0, &offset[12].target_position},
-    {0, 12, ElmoVidPid, 0x60b1, 0, &offset[12].offset_velocity},
-    {0, 12, ElmoVidPid, 0x60b2, 0, &offset[12].offset_torque},
-    {0, 12, ElmoVidPid, 0x60ff, 0, &offset[12].target_velocity},
-
-    {0, 12, ElmoVidPid, 0x6041, 0, &offset[12].status_word},
-    {0, 12, ElmoVidPid, 0x6064, 0, &offset[12].act_position},
-    {0, 12, ElmoVidPid, 0x606c, 0, &offset[12].act_velocity},
-    {0, 12, ElmoVidPid, 0x6077, 0, &offset[12].act_torque},
-    {0, 12, ElmoVidPid, 0x6061, 0, &offset[12].mode_Of_Operation_dsiplay},
-    ////
-    {0, 13, ElmoVidPid, 0x6040, 0, &offset[13].ctrl_word},
-    {0, 13, ElmoVidPid, 0x6071, 0, &offset[13].target_torque},
-    {0, 13, ElmoVidPid, 0x607a, 0, &offset[13].target_position},
-    {0, 13, ElmoVidPid, 0x60b1, 0, &offset[13].offset_velocity},
-    {0, 13, ElmoVidPid, 0x60b2, 0, &offset[13].offset_torque},
-    {0, 13, ElmoVidPid, 0x60ff, 0, &offset[13].target_velocity},
-
-    {0, 13, ElmoVidPid, 0x6041, 0, &offset[13].status_word},
-    {0, 13, ElmoVidPid, 0x6064, 0, &offset[13].act_position},
-    {0, 13, ElmoVidPid, 0x606c, 0, &offset[13].act_velocity},
-    {0, 13, ElmoVidPid, 0x6077, 0, &offset[13].act_torque},
-    {0, 13, ElmoVidPid, 0x6061, 0, &offset[13].mode_Of_Operation_dsiplay},
-    ////
-    {0, 14, ElmoVidPid, 0x6040, 0, &offset[14].ctrl_word},
-    {0, 14, ElmoVidPid, 0x6071, 0, &offset[14].target_torque},
-    {0, 14, ElmoVidPid, 0x607a, 0, &offset[14].target_position},
-    {0, 14, ElmoVidPid, 0x60b1, 0, &offset[14].offset_velocity},
-    {0, 14, ElmoVidPid, 0x60b2, 0, &offset[14].offset_torque},
-    {0, 14, ElmoVidPid, 0x60ff, 0, &offset[14].target_velocity},
-
-    {0, 14, ElmoVidPid, 0x6041, 0, &offset[14].status_word},
-    {0, 14, ElmoVidPid, 0x6064, 0, &offset[14].act_position},
-    {0, 14, ElmoVidPid, 0x606c, 0, &offset[14].act_velocity},
-    {0, 14, ElmoVidPid, 0x6077, 0, &offset[14].act_torque},
-    {0, 14, ElmoVidPid, 0x6061, 0, &offset[14].mode_Of_Operation_dsiplay},
-    ////
-    {0, 15, ElmoVidPid, 0x6040, 0, &offset[15].ctrl_word},
-    {0, 15, ElmoVidPid, 0x6071, 0, &offset[15].target_torque},
-    {0, 15, ElmoVidPid, 0x607a, 0, &offset[15].target_position},
-    {0, 15, ElmoVidPid, 0x60b1, 0, &offset[15].offset_velocity},
-    {0, 15, ElmoVidPid, 0x60b2, 0, &offset[15].offset_torque},
-    {0, 15, ElmoVidPid, 0x60ff, 0, &offset[15].target_velocity},
-
-    {0, 15, ElmoVidPid, 0x6041, 0, &offset[15].status_word},
-    {0, 15, ElmoVidPid, 0x6064, 0, &offset[15].act_position},
-    {0, 15, ElmoVidPid, 0x606c, 0, &offset[15].act_velocity},
-    {0, 15, ElmoVidPid, 0x6077, 0, &offset[15].act_torque},
-    {0, 15, ElmoVidPid, 0x6061, 0, &offset[15].mode_Of_Operation_dsiplay},
-    ////
-    {0, 16, ElmoVidPid, 0x6040, 0, &offset[16].ctrl_word},
-    {0, 16, ElmoVidPid, 0x6071, 0, &offset[16].target_torque},
-    {0, 16, ElmoVidPid, 0x607a, 0, &offset[16].target_position},
-    {0, 16, ElmoVidPid, 0x60b1, 0, &offset[16].offset_velocity},
-    {0, 16, ElmoVidPid, 0x60b2, 0, &offset[16].offset_torque},
-    {0, 16, ElmoVidPid, 0x60ff, 0, &offset[16].target_velocity},
-
-    {0, 16, ElmoVidPid, 0x6041, 0, &offset[16].status_word},
-    {0, 16, ElmoVidPid, 0x6064, 0, &offset[16].act_position},
-    {0, 16, ElmoVidPid, 0x606c, 0, &offset[16].act_velocity},
-    {0, 16, ElmoVidPid, 0x6077, 0, &offset[16].act_torque},
-    {0, 16, ElmoVidPid, 0x6061, 0, &offset[16].mode_Of_Operation_dsiplay},
-    ////
-    {0, 17, ElmoVidPid, 0x6040, 0, &offset[17].ctrl_word},
-    {0, 17, ElmoVidPid, 0x6071, 0, &offset[17].target_torque},
-    {0, 17, ElmoVidPid, 0x607a, 0, &offset[17].target_position},
-    {0, 17, ElmoVidPid, 0x60b1, 0, &offset[17].offset_velocity},
-    {0, 17, ElmoVidPid, 0x60b2, 0, &offset[17].offset_torque},
-    {0, 17, ElmoVidPid, 0x60ff, 0, &offset[17].target_velocity},
-
-    {0, 17, ElmoVidPid, 0x6041, 0, &offset[17].status_word},
-    {0, 17, ElmoVidPid, 0x6064, 0, &offset[17].act_position},
-    {0, 17, ElmoVidPid, 0x606c, 0, &offset[17].act_velocity},
-    {0, 17, ElmoVidPid, 0x6077, 0, &offset[17].act_torque},
-    {0, 17, ElmoVidPid, 0x6061, 0, &offset[17].mode_Of_Operation_dsiplay},
     ////
     {0, 18, ElmoVidPid, 0x6040, 0, &offset[18].ctrl_word},
     {0, 18, ElmoVidPid, 0x6071, 0, &offset[18].target_torque},
@@ -450,7 +269,7 @@ void *rt_thread_function(void *arg)
         isAllEnabled = true;
         isAllInitedToZero = true;
 
-        for (i2 = 4; i2 <= 18; i2++)
+        for (i2 = 18; i2 <= 18; i2++)
         {
             uint16_t ss = EC_READ_U16(domain1_pd + offset[i2].status_word);
             if (statusOld[i2] != ss)
@@ -505,11 +324,10 @@ void *rt_thread_function(void *arg)
                 isEnabled[i2] = true;
 
                 // 判断所有电机都使能
-                for (i3 = 4; i3 <= 18; i3++)
+                for (i3 = 18; i3 <= 18; i3++)
                 {
                     isAllEnabled = (isAllEnabled && isEnabled[i3]);
                 }
-                // 所有电机都使能后,从共享内存读取位置
                 if (isAllEnabled)
                 {
                     act_position = EC_READ_S32(domain1_pd + offset[i2].act_position);
@@ -535,53 +353,12 @@ void *rt_thread_function(void *arg)
                         else
                         {
                             isInitedToDefault[i2] = true;
+                            EC_WRITE_S16(domain1_pd + offset[i2].offset_torque, 100);
+                            printf("offset_torque 10 \n");
                         }
                     }
 
-                    // 判断所有电机都零位
-                    for (i4 = 4; i4 <= 18; i4++)
-                    {
-                        isAllInitedToZero = (isAllInitedToZero && isInitedToDefault[i4]);
-                    }
-                    if (isAllInitedToZero)
-                    {
-                        // printf("isAllInitedToZero  \n");
-                        if (i2 == 4)
-                        {
-                            memset(&reference, 0, sizeof(reference));
-                            memset(&feedback, 0, sizeof(feedback));
-                            pullDataOK = edb_pull_ref(&reference);
-                        }
-                        if (pullDataOK)
-                        {
-                            target_postion = reference.motor_ref[i2 - 4].target_postion;
-                            // if(i2==7||i2==8||i2==9)
-                            // {
-                            //     target_postion *= -1;
-                            // }
-                            EC_WRITE_S32(domain1_pd + offset[i2].target_position, target_postion);
-                            // printf("position %d,  %d to %d  \n", i2, act_position, target_postion);
-                            last_position[i2] = target_postion;
-
-                            target_torque_offset = reference.motor_ref[i2 - 4].torque_offset;
-                            if(i2==18){
-                                // EC_WRITE_S16(domain1_pd + offset[i2].offset_torque, target_torque_offset);
-                            }
-
-                        }
-                    }
-
-                    feedback.motor_fdbk[i2-4].feedbk_postion = act_position;
-                    // printf("act_position %d,%d  \n", i2, act_position);
-                    feedback.motor_fdbk[i2-4].feedbk_speed = act_velocity;
-                    feedback.motor_fdbk[i2-4].feedbk_torque = act_torque;
-                    feedback.motor_fdbk[i2-4].status_word = ss;
-                    feedback.motor_fdbk[i2-4].target_position = target_postion;
-                    pushDataOK = edb_push_fdbk(&feedback);
-                    if(!pushDataOK)
-                    {
-                        printf("pushData not OK  \n");
-                    }
+                   
                 }
             }
         }
@@ -663,7 +440,7 @@ void Igh_init()
 
     printf("servo %d  begin init! \n", i);
 
-    for (ii = 4; ii <= 18; ii++)
+    for (ii = 18; ii <= 18; ii++)
     {
 
         ec_slave_config_t *sc;
@@ -699,56 +476,7 @@ int main(int argc, char **argv)
 {
    
 
-    //初始化共享内存
-    int shmid = shmget(SHM_KEY, SHM_SIZE, 0666);
-    if (shmid == -1)
-    {
-        perror("shmget");
-        return EXIT_FAILURE;
-    }
-
-    void *appPtr;
-
-    appPtr = shmat(shmid, 0, 0);
-    if (appPtr == (void *)-1)
-    {
-        return -1;
-    }
-
-    edb_init(appPtr, SHM_SIZE, false);
-    memset(&reference, 0, sizeof(reference));
-    memset(&feedback, 0, sizeof(feedback));
-    //清空环形列表
-    while(edb_pull_ref(&reference))
-    {
-        printf("clean reference from shm \n ");
-    }  
-
-    //读取初始化位置
-    bool dataOk = edb_pull_fdbk(&feedback);
-    if(dataOk)
-    {
-        for(int i=0;i<=18;i++)
-        {
-            // defaultPositions[i] = feedback.motor_fdbk[0].default_position;
-        }        
-    }
-
-    //right
-    defaultPositions[7] =  (int)((0.468064/PI)*180*16*pow(2,17)/360);
-    defaultPositions[8] =  (int)((-0.0342226/PI)*180*16*pow(2,17)/360);
-    defaultPositions[9] =  (int)(-0.233342/(2*PI)*16*pow(2,17));
-    defaultPositions[10] =  (int)((0.841583/PI)*180*16*pow(2,17)/360);
-    defaultPositions[11] =  (int)(0.57/(2*PI)*16*pow(2,17));
-    defaultPositions[12] =  (int)((-0.59/PI)*180*16*pow(2,17)/360);
-
-    //left
-    defaultPositions[13] =  (int)((-0.468064/PI)*180*16*pow(2,17)/360);
-    defaultPositions[14] =  (int)((0.0342226/PI)*180*16*pow(2,17)/360);
-    defaultPositions[15] =  (int)((0.233342/PI)*180*16*pow(2,17)/360);     
-    defaultPositions[16] =  (int)((-0.841583/PI)*180*16*pow(2,17)/360);    
-    defaultPositions[17] =  (int)(-0.57/(2*PI)*16*pow(2,17));
-    defaultPositions[18] =  (int)((0.59/PI)*180*16*pow(2,17)/360);
+   
 
     Igh_init();
     Igh_master_activate();
