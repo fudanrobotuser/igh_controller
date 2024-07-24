@@ -2,6 +2,7 @@
     "files.associations": {
         "pthread.h": "c",
         "cmath": "c",
-        "stdio.h": "c"
+        "stdio.h": "c",
+        "ipc.h": "c"
     }
 }
