@@ -42,12 +42,14 @@
 #define SHM_KEY 12345
 #define SHM_SIZE (1024 * 1024 * 2)
 bool dataOk = false;
+bool firstable=1;
 
+static unsigned int counter = 0;
 static unsigned int sync_ref_counter = 0;
 static struct timespec apptime;
 
 // 同步周期时钟配置,8毫秒下发周期控制
-#define TASK_FREQUENCY 125 /* Hz */
+#define TASK_FREQUENCY 1000 /* Hz */
 #define CLOCK_TO_USE CLOCK_REALTIME
 #define TIMEOUT_CLEAR_ERROR (1 * TASK_FREQUENCY) /* clearing error timeout */
 // 时间控制相关函数
@@ -60,12 +62,11 @@ const struct timespec cycletime = {0, PERIOD_NS};
 
 #define P_START 0
 #define P_END 12
-#define MODE_JOG 1
-#define MODE_JOG_THEN_CSP 2
-#define MODE_CSP 3
 
 // EtherCAT
 static ec_master_t *master = NULL;
+static ec_master_state_t master_state = {};
+
 static ec_domain_t *domain1 = NULL;
 static ec_domain_state_t domain1_state = {};
 
@@ -84,20 +85,42 @@ static uint8_t *domain1_pd = NULL;
 // elmo 伺服对接
 #define ElmoVidPid 0x0000009a, 0x00030924
 
+// offsets for PDO entries
+static unsigned int ctrl_word;
+static unsigned int mode;
+static unsigned int tar_torq;
+static unsigned int max_torq;
+static unsigned int tar_pos;
 
-struct{
-    bool isEnabled;
-    uint16_t statusOld;
-    uint16_t status;
-    int statusDeCount;
-    int last_position;
-    int target_position;
-    int act_position;
-    int act_torque;    
-    int act_velocity;    
-    int error;
-    int errorOld;
-}jointData[P_END-P_START];
+static unsigned int digital_output;
+static unsigned int max_speed;
+static unsigned int touch_probe_func;
+static unsigned int tar_vel;
+static unsigned int error_code;
+static unsigned int status_word;
+static unsigned int mode_display;
+static unsigned int pos_act;
+static unsigned int vel_act;
+static unsigned int torq_act;
+static unsigned int pos_gap_act;
+static unsigned int touch_probe_status;
+static unsigned int touch_probe_pos;
+static unsigned int touch_probe_pos2;
+static unsigned int digital_input;
+
+// default postions
+int defaultPositions[19] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+// 判断是否所有电机都到了零位,到了之后会变成 true
+bool isInitedToDefault[19] = {false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false};
+// 是否电机使能了
+bool isEnabled[19] = {false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false};
+// 记录每个电机的旧状态
+uint16_t statusOld[19] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+// 状态机切换的等待次数
+int statusDeCount[19] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+// 记录当前的位置
+int last_position[19] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 // 伺服电机所有属性结构体,用于读取值的位置指针
 static struct
@@ -129,11 +152,14 @@ static struct
     unsigned int act_velocity;
     unsigned int mode_Of_Operation;
     unsigned int mode_Of_Operation_dsiplay;
-    unsigned int error;
-} offset[P_END-P_START];
+} offset[19];
 
 // IGH主栈的主映射表,总计15个电机. 因为 0-3 口给扩展板用了,实际电机的总线分配序号为 4-18
 const static ec_pdo_entry_reg_t domain1_regs[] = {
+
+
+    ////
+
     {0, P_START + 0, ElmoVidPid, 0x6040, 0, &offset[P_START + 0].ctrl_word},
     {0, P_START + 0, ElmoVidPid, 0x6071, 0, &offset[P_START + 0].target_torque},
     {0, P_START + 0, ElmoVidPid, 0x607a, 0, &offset[P_START + 0].target_position},
@@ -146,9 +172,8 @@ const static ec_pdo_entry_reg_t domain1_regs[] = {
     {0, P_START + 0, ElmoVidPid, 0x606c, 0, &offset[P_START + 0].act_velocity},
     {0, P_START + 0, ElmoVidPid, 0x6077, 0, &offset[P_START + 0].act_torque},
     {0, P_START + 0, ElmoVidPid, 0x6061, 0, &offset[P_START + 0].mode_Of_Operation_dsiplay},
-    {0, P_START + 0, ElmoVidPid, 0x603f, 0, &offset[P_START + 0].error},
+    
 
-#if (P_END - P_START) >= 1
     {0, P_START + 1, ElmoVidPid, 0x6040, 0, &offset[P_START + 1].ctrl_word},
     {0, P_START + 1, ElmoVidPid, 0x6071, 0, &offset[P_START + 1].target_torque},
     {0, P_START + 1, ElmoVidPid, 0x607a, 0, &offset[P_START + 1].target_position},
@@ -161,9 +186,6 @@ const static ec_pdo_entry_reg_t domain1_regs[] = {
     {0, P_START + 1, ElmoVidPid, 0x606c, 0, &offset[P_START + 1].act_velocity},
     {0, P_START + 1, ElmoVidPid, 0x6077, 0, &offset[P_START + 1].act_torque},
     {0, P_START + 1, ElmoVidPid, 0x6061, 0, &offset[P_START + 1].mode_Of_Operation_dsiplay},
-    {0, P_START + 1, ElmoVidPid, 0x603f, 0, &offset[P_START + 1].error},
-#endif
-#if (P_END - P_START) >= 2
     ////
     {0, P_START + 2, ElmoVidPid, 0x6040, 0, &offset[P_START + 2].ctrl_word},
     {0, P_START + 2, ElmoVidPid, 0x6071, 0, &offset[P_START + 2].target_torque},
@@ -177,9 +199,7 @@ const static ec_pdo_entry_reg_t domain1_regs[] = {
     {0, P_START + 2, ElmoVidPid, 0x606c, 0, &offset[P_START + 2].act_velocity},
     {0, P_START + 2, ElmoVidPid, 0x6077, 0, &offset[P_START + 2].act_torque},
     {0, P_START + 2, ElmoVidPid, 0x6061, 0, &offset[P_START + 2].mode_Of_Operation_dsiplay},
-    {0, P_START + 2, ElmoVidPid, 0x603f, 0, &offset[P_START + 2].error},
-#endif
-#if (P_END - P_START) >= 3
+    ////
     {0, P_START + 3, ElmoVidPid, 0x6040, 0, &offset[P_START + 3].ctrl_word},
     {0, P_START + 3, ElmoVidPid, 0x6071, 0, &offset[P_START + 3].target_torque},
     {0, P_START + 3, ElmoVidPid, 0x607a, 0, &offset[P_START + 3].target_position},
@@ -192,9 +212,7 @@ const static ec_pdo_entry_reg_t domain1_regs[] = {
     {0, P_START + 3, ElmoVidPid, 0x606c, 0, &offset[P_START + 3].act_velocity},
     {0, P_START + 3, ElmoVidPid, 0x6077, 0, &offset[P_START + 3].act_torque},
     {0, P_START + 3, ElmoVidPid, 0x6061, 0, &offset[P_START + 3].mode_Of_Operation_dsiplay},
-    {0, P_START + 3, ElmoVidPid, 0x603f, 0, &offset[P_START + 3].error},
-#endif
-#if (P_END - P_START) >= 4
+    ////
     {0, P_START + 4, ElmoVidPid, 0x6040, 0, &offset[P_START + 4].ctrl_word},
     {0, P_START + 4, ElmoVidPid, 0x6071, 0, &offset[P_START + 4].target_torque},
     {0, P_START + 4, ElmoVidPid, 0x607a, 0, &offset[P_START + 4].target_position},
@@ -207,9 +225,7 @@ const static ec_pdo_entry_reg_t domain1_regs[] = {
     {0, P_START + 4, ElmoVidPid, 0x606c, 0, &offset[P_START + 4].act_velocity},
     {0, P_START + 4, ElmoVidPid, 0x6077, 0, &offset[P_START + 4].act_torque},
     {0, P_START + 4, ElmoVidPid, 0x6061, 0, &offset[P_START + 4].mode_Of_Operation_dsiplay},
-    {0, P_START + 4, ElmoVidPid, 0x603f, 0, &offset[P_START + 4].error},
-#endif
-#if (P_END - P_START) >= 5
+    ////
     {0, P_START + 5, ElmoVidPid, 0x6040, 0, &offset[P_START + 5].ctrl_word},
     {0, P_START + 5, ElmoVidPid, 0x6071, 0, &offset[P_START + 5].target_torque},
     {0, P_START + 5, ElmoVidPid, 0x607a, 0, &offset[P_START + 5].target_position},
@@ -222,9 +238,7 @@ const static ec_pdo_entry_reg_t domain1_regs[] = {
     {0, P_START + 5, ElmoVidPid, 0x606c, 0, &offset[P_START + 5].act_velocity},
     {0, P_START + 5, ElmoVidPid, 0x6077, 0, &offset[P_START + 5].act_torque},
     {0, P_START + 5, ElmoVidPid, 0x6061, 0, &offset[P_START + 5].mode_Of_Operation_dsiplay},
-    {0, P_START + 5, ElmoVidPid, 0x603f, 0, &offset[P_START + 5].error},
-#endif
-#if (P_END - P_START) >= 6
+    ////
     {0, P_START + 6, ElmoVidPid, 0x6040, 0, &offset[P_START + 6].ctrl_word},
     {0, P_START + 6, ElmoVidPid, 0x6071, 0, &offset[P_START + 6].target_torque},
     {0, P_START + 6, ElmoVidPid, 0x607a, 0, &offset[P_START + 6].target_position},
@@ -237,9 +251,7 @@ const static ec_pdo_entry_reg_t domain1_regs[] = {
     {0, P_START + 6, ElmoVidPid, 0x606c, 0, &offset[P_START + 6].act_velocity},
     {0, P_START + 6, ElmoVidPid, 0x6077, 0, &offset[P_START + 6].act_torque},
     {0, P_START + 6, ElmoVidPid, 0x6061, 0, &offset[P_START + 6].mode_Of_Operation_dsiplay},
-    {0, P_START + 6, ElmoVidPid, 0x603f, 0, &offset[P_START + 6].error},
-#endif
-#if (P_END - P_START) >= 7
+    ////
     {0, P_START + 7, ElmoVidPid, 0x6040, 0, &offset[P_START + 7].ctrl_word},
     {0, P_START + 7, ElmoVidPid, 0x6071, 0, &offset[P_START + 7].target_torque},
     {0, P_START + 7, ElmoVidPid, 0x607a, 0, &offset[P_START + 7].target_position},
@@ -252,9 +264,7 @@ const static ec_pdo_entry_reg_t domain1_regs[] = {
     {0, P_START + 7, ElmoVidPid, 0x606c, 0, &offset[P_START + 7].act_velocity},
     {0, P_START + 7, ElmoVidPid, 0x6077, 0, &offset[P_START + 7].act_torque},
     {0, P_START + 7, ElmoVidPid, 0x6061, 0, &offset[P_START + 7].mode_Of_Operation_dsiplay},
-    {0, P_START + 7, ElmoVidPid, 0x603f, 0, &offset[P_START + 7].error},
-#endif
-#if (P_END - P_START) >= 8
+    ////
     {0, P_START + 8, ElmoVidPid, 0x6040, 0, &offset[P_START + 8].ctrl_word},
     {0, P_START + 8, ElmoVidPid, 0x6071, 0, &offset[P_START + 8].target_torque},
     {0, P_START + 8, ElmoVidPid, 0x607a, 0, &offset[P_START + 8].target_position},
@@ -267,9 +277,7 @@ const static ec_pdo_entry_reg_t domain1_regs[] = {
     {0, P_START + 8, ElmoVidPid, 0x606c, 0, &offset[P_START + 8].act_velocity},
     {0, P_START + 8, ElmoVidPid, 0x6077, 0, &offset[P_START + 8].act_torque},
     {0, P_START + 8, ElmoVidPid, 0x6061, 0, &offset[P_START + 8].mode_Of_Operation_dsiplay},
-    {0, P_START + 8, ElmoVidPid, 0x603f, 0, &offset[P_START + 8].error},
-#endif
-#if (P_END - P_START) >= 9
+    ////
     {0, P_START + 9, ElmoVidPid, 0x6040, 0, &offset[P_START + 9].ctrl_word},
     {0, P_START + 9, ElmoVidPid, 0x6071, 0, &offset[P_START + 9].target_torque},
     {0, P_START + 9, ElmoVidPid, 0x607a, 0, &offset[P_START + 9].target_position},
@@ -282,9 +290,7 @@ const static ec_pdo_entry_reg_t domain1_regs[] = {
     {0, P_START + 9, ElmoVidPid, 0x606c, 0, &offset[P_START + 9].act_velocity},
     {0, P_START + 9, ElmoVidPid, 0x6077, 0, &offset[P_START + 9].act_torque},
     {0, P_START + 9, ElmoVidPid, 0x6061, 0, &offset[P_START + 9].mode_Of_Operation_dsiplay},
-    {0, P_START + 9, ElmoVidPid, 0x603f, 0, &offset[P_START + 9].error},
-#endif
-#if (P_END - P_START) >= 10
+    ////
     {0, P_START + 10, ElmoVidPid, 0x6040, 0, &offset[P_START + 10].ctrl_word},
     {0, P_START + 10, ElmoVidPid, 0x6071, 0, &offset[P_START + 10].target_torque},
     {0, P_START + 10, ElmoVidPid, 0x607a, 0, &offset[P_START + 10].target_position},
@@ -297,9 +303,7 @@ const static ec_pdo_entry_reg_t domain1_regs[] = {
     {0, P_START + 10, ElmoVidPid, 0x606c, 0, &offset[P_START + 10].act_velocity},
     {0, P_START + 10, ElmoVidPid, 0x6077, 0, &offset[P_START + 10].act_torque},
     {0, P_START + 10, ElmoVidPid, 0x6061, 0, &offset[P_START + 10].mode_Of_Operation_dsiplay},
-    {0, P_START + 10, ElmoVidPid, 0x603f, 0, &offset[P_START + 10].error},
-#endif
-#if (P_END - P_START) >= 11
+    ////
     {0, P_START + 11, ElmoVidPid, 0x6040, 0, &offset[P_START + 11].ctrl_word},
     {0, P_START + 11, ElmoVidPid, 0x6071, 0, &offset[P_START + 11].target_torque},
     {0, P_START + 11, ElmoVidPid, 0x607a, 0, &offset[P_START + 11].target_position},
@@ -312,23 +316,20 @@ const static ec_pdo_entry_reg_t domain1_regs[] = {
     {0, P_START + 11, ElmoVidPid, 0x606c, 0, &offset[P_START + 11].act_velocity},
     {0, P_START + 11, ElmoVidPid, 0x6077, 0, &offset[P_START + 11].act_torque},
     {0, P_START + 11, ElmoVidPid, 0x6061, 0, &offset[P_START + 11].mode_Of_Operation_dsiplay},
-    {0, P_START + 11, ElmoVidPid, 0x603f, 0, &offset[P_START + 11].error},
-#endif
-#if (P_END - P_START) >= 12
-    {0, P_START + 12, ElmoVidPid, 0x6040, 0, &offset[P_START + 12].ctrl_word},
-    {0, P_START + 12, ElmoVidPid, 0x6071, 0, &offset[P_START + 12].target_torque},
-    {0, P_START + 12, ElmoVidPid, 0x607a, 0, &offset[P_START + 12].target_position},
-    {0, P_START + 12, ElmoVidPid, 0x60b1, 0, &offset[P_START + 12].offset_velocity},
-    {0, P_START + 12, ElmoVidPid, 0x60b2, 0, &offset[P_START + 12].offset_torque},
-    {0, P_START + 12, ElmoVidPid, 0x60ff, 0, &offset[P_START + 12].target_velocity},
 
-    {0, P_START + 12, ElmoVidPid, 0x6041, 0, &offset[P_START + 12].status_word},
-    {0, P_START + 12, ElmoVidPid, 0x6064, 0, &offset[P_START + 12].act_position},
-    {0, P_START + 12, ElmoVidPid, 0x606c, 0, &offset[P_START + 12].act_velocity},
-    {0, P_START + 12, ElmoVidPid, 0x6077, 0, &offset[P_START + 12].act_torque},
-    {0, P_START + 12, ElmoVidPid, 0x6061, 0, &offset[P_START + 12].mode_Of_Operation_dsiplay},
-    {0, P_START + 12, ElmoVidPid, 0x603f, 0, &offset[P_START + 12].error},
-#endif
+    {0, P_START +12, ElmoVidPid, 0x6040, 0, &offset[P_START +12].ctrl_word},
+    {0, P_START +12, ElmoVidPid, 0x6071, 0, &offset[P_START +12].target_torque},
+    {0, P_START +12, ElmoVidPid, 0x607a, 0, &offset[P_START +12].target_position},
+    {0, P_START +12, ElmoVidPid, 0x60b1, 0, &offset[P_START +12].offset_velocity},
+    {0, P_START +12, ElmoVidPid, 0x60b2, 0, &offset[P_START +12].offset_torque},
+    {0, P_START +12, ElmoVidPid, 0x60ff, 0, &offset[P_START +12].target_velocity},
+
+    {0, P_START +12, ElmoVidPid, 0x6041, 0, &offset[P_START +12].status_word},
+    {0, P_START +12, ElmoVidPid, 0x6064, 0, &offset[P_START +12].act_position},
+    {0, P_START +12, ElmoVidPid, 0x606c, 0, &offset[P_START +12].act_velocity},
+    {0, P_START +12, ElmoVidPid, 0x6077, 0, &offset[P_START +12].act_torque},
+    {0, P_START +12, ElmoVidPid, 0x6061, 0, &offset[P_START +12].mode_Of_Operation_dsiplay},
+    ////
     {}};
 
 // 伺服电机的PDO映射参数
@@ -345,13 +346,12 @@ ec_pdo_entry_info_t Igh_pdo_entries[] = {
     {0x606c, 0x00, 32},
     {0x6077, 0x00, 16},
     {0x6061, 0x00, 8},
-    {0x603f, 0x00, 16},
 };
 
 // 伺服电机PDO映射参数的组地址
 ec_pdo_info_t Igh_pdos[] = {
     {0x1607, 6, Igh_pdo_entries + 0},
-    {0x1a07, 6, Igh_pdo_entries + 6},
+    {0x1a07, 5, Igh_pdo_entries + 6},
 };
 
 ec_sync_info_t Igh_syncs[] = {
@@ -402,18 +402,24 @@ void check_domain1_state(void)
  * **/
 void *rt_thread_function(void *arg)
 {
-    struct timespec wakeupTime;
+    struct timespec wakeupTime, time;
     // get current time
     clock_gettime(CLOCK_TO_USE, &wakeupTime);
-
+    int act_position = 0;
+    int act_torque = 0;
+    int act_velocity = 0;
+    int target_postion = 0;
+    int target_torque_offset = 0;
+    int act_positin_read = 0;
+    int dir = 1;
     bool isAllEnabled = true;
     bool isAllInitedToZero = true;
     int i2, i3, i4 = 0;
     bool pushDataOK = false;
     bool pullDataOK = false;
-    edb_pull_ref(&reference);
     while (1)
     {
+
         wakeupTime = timespec_add(wakeupTime, cycletime);
         clock_nanosleep(CLOCK_TO_USE, TIMER_ABSTIME, &wakeupTime, NULL);
         ecrt_master_receive(master);
@@ -425,111 +431,145 @@ void *rt_thread_function(void *arg)
 
         for (i2 = P_START; i2 <= P_END; i2++)
         {
-            jointData[i2].status = EC_READ_U16(domain1_pd + offset[i2].status_word);
-            if ( jointData[i2].statusOld != jointData[i2].status)
+            uint16_t ss = EC_READ_U16(domain1_pd + offset[i2].status_word);
+            if (statusOld[i2] != ss)
             {
-                if ((jointData[i2].status == 0x1237 && jointData[i2].statusOld == 0x0237) || (jointData[i2].status == 0x0237 && jointData[i2].statusOld == 0x1237))
+                if ((ss == 0x1237 && statusOld[i2] == 0x0237) || (ss == 0x0237 && statusOld[i2] == 0x1237))
                 {
                     // NO PRINT
                 }
                 else
                 {
-                    printf("status %d : 0x%04x to 0x%04x  \n", i2, jointData[i2].statusOld, jointData[i2].status);
+                    printf("status %d : 0x%04x to 0x%04x  \n", i2, statusOld[i2], ss);
                 }
 
-                jointData[i2].statusOld = jointData[i2].status;
-                jointData[i2].statusDeCount = 5;
+                statusOld[i2] = ss;
+                statusDeCount[i2] = 5;
             }
 
             // 电机未使能,则执行状态机切换
-            if ((jointData[i2].status & 0xFF) != 0x37)
+            if ((ss & 0xFF) != 0x37)
             {
-                jointData[i2].isEnabled = false;
-                if (jointData[i2].statusDeCount == 5)
+                isEnabled[i2] = false;
+                if (statusDeCount[i2] == 5)
                 {
-                    if ((jointData[i2].status & 0xFF) == 0x50)
+                    if ((ss & 0xFF) == 0x50)
                     {
                         EC_WRITE_U16(domain1_pd + offset[i2].ctrl_word, 0x06);
                     }
-                    else if ((jointData[i2].status & 0xFF) == 0x31)
+                    else if ((ss & 0xFF) == 0x31)
                     {
-                        jointData[i2].last_position = EC_READ_S32(domain1_pd + offset[i2].act_position);
-                        EC_WRITE_S32(domain1_pd + offset[i2].target_position, jointData[i2].last_position);
+                        last_position[i2] = EC_READ_S32(domain1_pd + offset[i2].act_position);
+                        EC_WRITE_S32(domain1_pd + offset[i2].target_position, last_position[i2]);
                         EC_WRITE_U16(domain1_pd + offset[i2].ctrl_word, 0x07);
                     }
-                    else if ((jointData[i2].status & 0xFF) == 0x33)
+                    else if ((ss & 0xFF) == 0x33)
                     {
-                        jointData[i2].last_position = EC_READ_S32(domain1_pd + offset[i2].act_position);
-                        EC_WRITE_S32(domain1_pd + offset[i2].target_position, jointData[i2].last_position);
+                        last_position[i2] = EC_READ_S32(domain1_pd + offset[i2].act_position);
+                        EC_WRITE_S32(domain1_pd + offset[i2].target_position, last_position[i2]);
                         EC_WRITE_U16(domain1_pd + offset[i2].ctrl_word, 0x0F);
                     }
-                    else if ((jointData[i2].status & 0xF) == 0x8)
-                    {
-                        jointData[i2].error = EC_READ_U16(domain1_pd + offset[i2].error);
-                        if(jointData[i2].error != jointData[i2].errorOld)
-                        {
-                            printf("error %d : 0x%04x   \n", i2, jointData[i2].error);
-                            jointData[i2].errorOld = jointData[i2].error;
-                        }
-                        
-                    }
                 }
-                if (jointData[i2].statusDeCount <= 0)
+                if (statusDeCount[i2] <= 0)
                 {
-                    jointData[i2].statusDeCount = 5;
+                    statusDeCount[i2] = 5;
                 }
                 else
                 {
-                    jointData[i2].statusDeCount --;
+                    statusDeCount[i2]--;
                 }
             }
             else
             {
-                jointData[i2].isEnabled = true;
+                isEnabled[i2] = true;
 
                 // 判断所有电机都使能
                 for (i3 = P_START; i3 <= P_END; i3++)
                 {
-                    isAllEnabled = (isAllEnabled && jointData[i3].isEnabled);
+                    isAllEnabled = (isAllEnabled && isEnabled[i3]);
                 }
-                
                 // 所有电机都使能后,从共享内存读取位置
                 if (isAllEnabled)
                 {
-                    printf("isAllEnabled %d \n",isAllEnabled);
+                    act_position = EC_READ_S32(domain1_pd + offset[i2].act_position);
+                    act_velocity = EC_READ_S32(domain1_pd + offset[i2].act_velocity);
+                    act_torque = EC_READ_S16(domain1_pd + offset[i2].act_torque);
 
-                    jointData[i2].act_position = EC_READ_S32(domain1_pd + offset[i2].act_position);
-                    printf("act_position %d \n",isAllEnabled);
-                    jointData[i2].act_velocity = EC_READ_S32(domain1_pd + offset[i2].act_velocity);
-                    printf("act_velocity %d \n",isAllEnabled);
-                    jointData[i2].act_torque = EC_READ_S16(domain1_pd + offset[i2].act_torque);
-                    printf("act_torque %d \n",isAllEnabled);
-                    
-                    if (i2 == P_START)
+                    if (isInitedToDefault[i2] == false)
                     {
-                        // memset(&reference, 0, sizeof(reference));
-                        (edb_pull_ref(&reference));
+                        if (last_position[i2] > defaultPositions[i2] + 80)
+                        {
+                            target_postion = last_position[i2] - 120;
+                            printf("position + %d,  %d to %d  \n", i2, last_position[i2], target_postion);
+                            EC_WRITE_S32(domain1_pd + offset[i2].target_position, target_postion);
+                            last_position[i2] = target_postion;
+                        }
+                        else if (last_position[i2] < defaultPositions[i2] - 80)
+                        {
+                            target_postion = last_position[i2] + 120;
+                            printf("position - %d,  %d to %d  \n", i2, last_position[i2], target_postion);
+                            EC_WRITE_S32(domain1_pd + offset[i2].target_position, target_postion);
+                            last_position[i2] = target_postion;
+                        }
+                        else
+                        {
+                            isInitedToDefault[i2] = true;
+                        }
                     }
-                    // if (pullDataOK)
-                    // {
 
-                    //     jointData[i2].target_position = reference.motor_ref[i2 - P_START].target_postion;
-                    //     EC_WRITE_S32(domain1_pd + offset[i2].target_position, jointData[i2].target_position);
-                    //     printf("%d,%d>%d;", i2, jointData[i2].act_position, jointData[i2].target_position);
-                    //     jointData[i2].last_position = jointData[i2].target_position;
-                    // }
-                    
- 
-                    // feedback.motor_fdbk[i2 - P_START].feedbk_postion = jointData[i2].act_position;printf(4);
-                    // feedback.motor_fdbk[i2 - P_START].feedbk_speed = jointData[i2].act_velocity;printf(13);
-                    // feedback.motor_fdbk[i2 - P_START].feedbk_torque = jointData[i2].act_torque;printf(113);
-                    // feedback.motor_fdbk[i2 - P_START].status_word = jointData[i2].status;printf(1113);
-                    // feedback.motor_fdbk[i2 - P_START].target_position = jointData[i2].target_position;printf(31111);
-                    // pushDataOK = edb_push_fdbk(&feedback);
-                    // if (!pushDataOK)
-                    // {
-                    //     printf("pushData not OK  \n");
-                    // }
+                    // 判断所有电机都零位
+                    for (i4 = P_START; i4 <= P_END; i4++)
+                    {
+                        isAllInitedToZero = (isAllInitedToZero && isInitedToDefault[i4]);
+                    }
+                    if (isAllInitedToZero&&firstable)
+                    {
+                        printf("isAllInitedToZero\n");
+                        firstable=0;
+                    }
+                    if (isAllInitedToZero)
+                    {
+                        // printf("isAllInitedToZero  \n");
+                        if (i2 == P_START)
+                        {
+                            memset(&reference, 0, sizeof(reference));
+                            memset(&feedback, 0, sizeof(feedback));
+                            pullDataOK = edb_pull_ref(&reference);
+                        }
+                        if (pullDataOK)
+                        {
+                            target_postion = reference.motor_ref[i2 - P_START].target_postion;
+                            EC_WRITE_S32(domain1_pd + offset[i2].target_position, target_postion);
+                            // printf("position %d,  %d to %d  \n", i2, act_position, target_postion);
+                            last_position[i2] = target_postion;
+
+                            target_torque_offset = reference.motor_ref[i2 - P_START].torque_offset;
+                            EC_WRITE_S16(domain1_pd + offset[i2].offset_torque, target_torque_offset);
+                            feedback.isMoving = true;
+                        }
+                        else
+                        {
+                            feedback.isMoving = false;
+                        }
+
+                        if(i2==P_START+12)
+                        {
+                            EC_WRITE_S32(domain1_pd + offset[i2].target_position, act_position);
+                            EC_WRITE_S16(domain1_pd + offset[i2].offset_torque, 100);
+                        }
+                    }
+
+                    feedback.motor_fdbk[i2 - P_START].feedbk_postion = act_position;
+                    // printf("act_position %d,%d  \n", i2, act_position);
+                    feedback.motor_fdbk[i2 - P_START].feedbk_speed = act_velocity;
+                    feedback.motor_fdbk[i2 - P_START].feedbk_torque = act_torque;
+                    feedback.motor_fdbk[i2 - P_START].status_word = ss;
+                    feedback.motor_fdbk[i2 - P_START].target_position = target_postion;
+                    pushDataOK = edb_push_fdbk(&feedback);
+                    if (!pushDataOK)
+                    {
+                        printf("pushData not OK  \n");
+                    }
                 }
             }
         }
@@ -581,7 +621,12 @@ void Igh_init()
 {
     ec_master_info_t master_info;
     ec_slave_info_t slave_info;
-    
+    int ret;
+    int slavecnt;
+    ec_slave_config_t *sc;
+
+    // uint32_t  abort_code;
+    // size_t rb;
     int i = 0;
     master = ecrt_request_master(0);
     if (!master)
@@ -596,7 +641,8 @@ void Igh_init()
     }
 
     //---------get master / salve info----------------------
-    int ret = ecrt_master(master, &master_info);
+    ret = ecrt_master(master, &master_info);
+    slavecnt = master_info.slave_count;
     printf("ret = %d, slavecnt = %d, apptime = %" PRIu64 "\n", ret, master_info.slave_count, master_info.app_time);
     ret = ecrt_master_get_slave(master, 0, &slave_info);
     printf("ret = %d,spos = %d, pcode = %d\n", ret, slave_info.position, slave_info.product_code);
@@ -658,26 +704,30 @@ int main(int argc, char **argv)
 
     memset(&reference, 0, sizeof(reference));
     memset(&feedback, 0, sizeof(feedback));
-    printf("22222 \n");
     // 清空环形列表
     while (edb_pull_ref(&reference))
     {
         printf("clean reference from shm \n ");
     }
-edb_pull_ref(&reference);
-printf("1111");
+
+    // right
+    //  defaultPositions[7] =  (int)((0.468064/PI)*180*16*pow(2,17)/360);
+    //  defaultPositions[8] =  (int)((-0.0342226/PI)*180*16*pow(2,17)/360);
+    //  defaultPositions[9] =  (int)(-0.233342/(2*PI)*16*pow(2,17));
+    //  defaultPositions[10] =  (int)((0.841583/PI)*180*16*pow(2,17)/360);
+    //  defaultPositions[11] =  (int)(0.57/(2*PI)*16*pow(2,17));
+    //  defaultPositions[12] =  (int)((-0.59/PI)*180*16*pow(2,17)/360);
+
+    // left
+    //  defaultPositions[13] =  (int)((-0.468064/PI)*180*16*pow(2,17)/360);
+    //  defaultPositions[14] =  (int)((0.0342226/PI)*180*16*pow(2,17)/360);
+    //  defaultPositions[15] =  (int)((0.233342/PI)*180*16*pow(2,17)/360);
+    //  defaultPositions[16] =  (int)((-0.841583/PI)*180*16*pow(2,17)/360);
+    //  defaultPositions[17] =  (int)(-0.57/(2*PI)*16*pow(2,17));
+    //  defaultPositions[18] =  (int)((0.59/PI)*180*16*pow(2,17)/360);
 
     Igh_init();
-    // Igh_master_activate();
-edb_pull_ref(&reference);
-printf("333333 \n");
-    for(ii=0;ii<=(P_END-P_START);ii++)
-    {
-        jointData[ii].isEnabled = false;
-        jointData[ii].last_position = 0;
-        jointData[ii].statusOld = 0;
-        jointData[ii].statusDeCount = 5;
-    }
+    Igh_master_activate();
 
     pthread_t rt_thread;
     pthread_attr_t attr;
@@ -711,8 +761,7 @@ printf("333333 \n");
         perror("pthread_attr_setinheritsched");
         exit(EXIT_FAILURE);
     }
-edb_pull_ref(&reference);
-printf("adfasdfasdfasdf");
+
     // Create real-time thread
     if (pthread_create(&rt_thread, &attr, rt_thread_function, NULL) != 0)
     {

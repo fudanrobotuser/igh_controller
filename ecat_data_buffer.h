@@ -62,6 +62,7 @@ typedef struct
 typedef struct
 {
 	MOTOR_FEEDBACK motor_fdbk[MAX_MOTORS_NUM]; /*Feedback data for all motor*/
+	bool isMoving;
 } GROUP_FEEDBACK;
 
 typedef struct

@@ -117,7 +117,7 @@ bool isEnabled[19] = {false, false, false, false, false, false, false, false, fa
 // 记录每个电机的旧状态
 uint16_t statusOld[19] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 // 状态机切换的等待次数
-int statusDeCount[19] = {5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5};
+int statusDeCount[19] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 // 记录当前的位置
 int last_position[19] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
@@ -540,6 +540,11 @@ void *rt_thread_function(void *arg)
                             target_torque_offset = reference.motor_ref[i2 - P_START].torque_offset;
 
                             // EC_WRITE_S16(domain1_pd + offset[i2].offset_torque, target_torque_offset);
+                            feedback.isMoving = true;
+                        }
+                        else
+                        {
+                            feedback.isMoving = false;
                         }
                     }
 
